@@ -1,234 +1,129 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Topper Stitching - Owner Dashboard</title>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-  <style>
-    * {box-sizing:border-box;font-family:sans-serif;margin:0;padding:0;}
-    body {background:#075e54;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;padding:20px;text-align:center;}
-    .dashboard-card {background:#128c7e;padding:30px;border-radius:20px;width:100%;max-width:400px;box-shadow:0 10px 30px rgba(0,0,0,0.3);}
-    h2 {color:#ffab00;margin-bottom:10px;}
-    p {font-size:16px;margin:15px 0;opacity:0.9;}
-    .btn {padding:12px 25px;font-size:16px;border:none;border-radius:30px;cursor:pointer;font-weight:bold;margin:10px;box-shadow:0 4px 10px rgba(0,0,0,0.2);}
-    .accept {background:#25d366;color:white;}
-    .reject {background:#dc3545;color:white;}
-    .control-row {display:flex;justify-content:center;gap:15px;margin-top:20px;}
-    .circle-btn {width:60px;height:60px;border-radius:50%;border:none;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;}
-    .circle-btn.active {background:#fff !important;color:#333 !important;}
-    #loginScreen, #restrictedScreen {display:none;}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Topper Stitching - Admin Panel</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+body { background: #0a0d14; color: #fff; padding: 20px; }
+h1 { color: #00f2fe; text-align: center; margin-bottom: 20px; font-size: 24px; text-shadow: 0 0 10px rgba(0,242,254,0.5); }
+.container { max-width: 900px; margin: auto; }
+.order-card { background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); font-size: 14px; }
+.order-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 10px; }
+.controls-group { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; }
+select, input[type="text"], button { padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: #16213e; color: #fff; font-size: 13px; outline: none; }
+button { background: #00f2fe; color: #0a0d14; font-weight: bold; cursor: pointer; border: none; transition: 0.2s; }
+button:hover { opacity: 0.9; }
+.btn-save { background: #2e7d32; color: #fff; }
+.empty-msg { text-align: center; color: #aaa; margin-top: 40px; }
+</style>
 </head>
 <body>
 
-<!-- लॉगिन स्क्रीन (यदि ओनर लॉगिन नहीं है) -->
-<div class="dashboard-card" id="loginScreen">
-  <h2>Owner Login</h2>
-  <p>कृपया ऑथराइज्ड ओनर अकाउंट से साइन इन करें।</p>
-  <button class="btn accept" onclick="ownerGoogleSignIn()">Google से साइन इन करें</button>
+<div class="container">
+  <h1>Topper Stitching Admin - Order Manager</h1>
+  <div id="adminOrdersList">Loading orders...</div>
 </div>
 
-<!-- रिस्ट्रिक्टेड स्क्रीन (यदि कोई दूसरा यूजर लॉगिन हो जाए) -->
-<div class="dashboard-card" id="restrictedScreen">
-  <h2 style="color:#ff5252;">Access Denied</h2>
-  <p>यह ओनर डैशबोर्ड केवल अधिकृत एडमिन के लिए है।</p>
-  <button class="btn reject" onclick="ownerSignOut()">लॉग आउट करें</button>
-</div>
-
-<!-- मुख्य ओनर डैशबोर्ड (केवल सही ईमेल के लिए खुलेगा) -->
-<div class="dashboard-card" id="dashboardScreen" style="display:none;">
-  <h2>Topper Stitching Owner</h2>
-  <p id="statusText">ऑनलाइन हैं, कॉल का इंतज़ार है...</p>
-  
-  <div id="incomingBox" style="display:none;">
-    <p style="font-size:18px; font-weight:bold;">📞 ग्राहक का कॉल आ रहा है!</p>
-    <div>
-      <button class="btn accept" onclick="acceptIncomingCall()">उठाएँ (Accept)</button>
-      <button class="btn reject" onclick="rejectIncomingCall()">काटें (Reject)</button>
-    </div>
-  </div>
-
-  <div id="activeCallBox" style="display:none;">
-    <p style="font-size:20px; color:#25d366; font-weight:bold;">🟢 बात हो रही है...</p>
-    <div class="control-row">
-      <button class="circle-btn" id="ownerMuteBtn" onclick="toggleOwnerMute()" style="background:rgba(255,255,255,0.2);color:#fff;" title="Mute">🎤</button>
-      <button class="circle-btn" onclick="hangUpCall()" style="background:#dc3545;color:#fff;width:70px;height:70px;font-size:26px;" title="End">📞</button>
-      <button class="circle-btn" id="ownerSpeakerBtn" onclick="toggleOwnerSpeaker()" style="background:rgba(255,255,255,0.2);color:#fff;" title="Speaker">🔊</button>
-    </div>
-  </div>
-
-  <button class="btn reject" onclick="ownerSignOut()" style="font-size:13px; padding:6px 15px; margin-top:20px;">लॉग आउट</button>
-  <audio id="ownerRemoteAudio" autoplay></audio>
-</div>
-
-<audio id="ringtoneAudio" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" loop></audio>
+<!-- Firebase SDKs via CDN -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
-  const firebaseConfig={ 
-    apiKey:"AIzaSyDrsMo4f15JZxUk8LkNYqlYqfzEHOQ8Q4w", 
-    authDomain:"toppersewingmachine.firebaseapp.com", 
-    databaseURL:"https://toppersewingmachine-default-rtdb.firebaseio.com", 
-    projectId:"toppersewingmachine", 
-    storageBucket:"toppersewingmachine.firebasestorage.app", 
-    messagingSenderId:"281176461879", 
-    appId:"1:281176461879:web:97648170de01d8c975e5b2", 
-    measurementId:"G-GRP6EXGE3L" 
-  }; 
+const firebaseConfig = { 
+  apiKey: "AIzaSyDrsMo4f15JZxUk8LkNYqlYqfzEHOQ8Q4w", 
+  authDomain: "toppersewingmachine.firebaseapp.com", 
+  databaseURL: "https://toppersewingmachine-default-rtdb.firebaseio.com", 
+  projectId: "toppersewingmachine", 
+  storageBucket: "toppersewingmachine.firebasestorage.app", 
+  messagingSenderId: "281176461879", 
+  appId: "1:281176461879:web:97648170de01d8c975e5b2", 
+  measurementId: "G-GRP6EXGE3L" 
+}; 
 
-  if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.database();
-  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-  const AUTHORIZED_EMAIL = "ankiteeepad009@gmail.com";
-  let peer = null;
-  let incomingCallRef = null;
-  let activeCallRef = null;
-  let localStreamRef = null;
-  let isOwnerMuted = false;
-  let isOwnerSpeakerOn = true;
-  const ringtone = document.getElementById('ringtoneAudio');
-
-  function stopRingtone(){
-    if(ringtone){ ringtone.pause(); ringtone.currentTime = 0; }
+const ordersRef = db.ref("orders");
+ordersRef.on("value", snapshot => {
+  const list = document.getElementById("adminOrdersList");
+  list.innerHTML = "";
+  if (!snapshot.exists()) {
+    list.innerHTML = '<p class="empty-msg">No orders found.</p>';
+    return;
   }
 
-  auth.onAuthStateChanged(user => {
-    if(!user){
-      document.getElementById('loginScreen').style.display = 'block';
-      document.getElementById('restrictedScreen').style.display = 'none';
-      document.getElementById('dashboardScreen').style.display = 'none';
-    } else if(user.email === AUTHORIZED_EMAIL){
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('restrictedScreen').style.display = 'none';
-      document.getElementById('dashboardScreen').style.display = 'block';
-      initPeer();
-    } else {
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('dashboardScreen').style.display = 'none';
-      document.getElementById('restrictedScreen').style.display = 'block';
-    }
+  const orders = [];
+  snapshot.forEach(child => {
+    const o = child.val();
+    if(o) { o._id = child.key; orders.push(o); }
   });
+  orders.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
 
-  function ownerGoogleSignIn(){
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider).catch(err => alert("लॉगिन असफल: " + err.message));
-  }
+  orders.forEach(order => {
+    const card = document.createElement("div");
+    card.className = "order-card";
+    const currentStep = order.stepIndex || 1;
+    const deliveredDateVal = order.deliveredDate || "";
+    const mapLinkHtml = order.location ? `<div style="margin-top:6px"><b>📍 Map Location:</b> <a href="${order.location}" target="_blank" style="color:#00f2fe">Open Location</a></div>` : "";
 
-  function ownerSignOut(){
-    stopRingtone();
-    if(peer) peer.destroy();
-    auth.signOut();
-  }
+    card.innerHTML = `
+      <div class="order-header">
+        <b>📦 ${escapeHtml(order.product || "Product")}</b>
+        <span>₹${Number(order.price || 0).toLocaleString("en-IN")}</span>
+      </div>
+      <div><b>🆔 Order ID:</b> ${escapeHtml(order.orderId || order._id)}</div>
+      <div style="margin-top:6px"><b>👤 Name:</b> ${escapeHtml(order.customerName || "")}</div>
+      <div style="margin-top:6px"><b>📞 Mobile:</b> ${escapeHtml(order.customerPhone || "")}</div>
+      <div style="margin-top:6px"><b>🏠 Address:</b> ${escapeHtml(order.address || "")}</div>
+      <div style="margin-top:6px"><b>💳 UTR / Ref:</b> ${escapeHtml(order.utrNumber || "")}</div>
+      <div style="margin-top:6px"><b>🕐 Date:</b> ${escapeHtml(order.date || "")}</div>
+      ${mapLinkHtml}
 
-  function initPeer(){
-    if(peer) return;
-    peer = new Peer('topper-stitching-owner');
+      <div class="controls-group">
+        <label><b>Status Step:</b></label>
+        <select id="stepSelect_${order._id}">
+          <option value="1" ${currentStep == 1 ? 'selected' : ''}>1. Order Placed</option>
+          <option value="2" ${currentStep == 2 ? 'selected' : ''}>2. Payment Successful</option>
+          <option value="3" ${currentStep == 3 ? 'selected' : ''}>3. Preparing for Delivery</option>
+          <option value="4" ${currentStep == 4 ? 'selected' : ''}>4. Order Delivered</option>
+          <option value="5" ${currentStep == 5 ? 'selected' : ''}>❌ Order Failed</option>
+        </select>
+        
+        <input type="text" id="dateInput_${order._id}" placeholder="Delivered Date (dd/mm/yyyy)" value="${escapeHtml(deliveredDateVal)}" style="width:170px;">
+        
+        <button class="btn-save" onclick="updateOrderStatus('${order._id}')">Update Order</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}, error => {
+  document.getElementById("adminOrdersList").textContent = "Error loading orders: " + error.message;
+});
 
-    peer.on('open', (id) => {
-      document.getElementById('statusText').innerText = 'डैशबोर्ड तैयार है (Online)';
-    });
+function escapeHtml(value){ 
+  return String(value??"") 
+    .replace(/&/g,"&amp;") 
+    .replace(/</g,"&lt;").replace(/>/g,"&gt;") 
+    .replace(/"/g,"&quot;") 
+    .replace(/'/g,"&#39;"); 
+}
 
-    peer.on('call', (call) => {
-      incomingCallRef = call;
-      document.getElementById('statusText').style.display = 'none';
-      document.getElementById('incomingBox').style.display = 'block';
-      ringtone.play().catch(e => console.log(e));
+window.updateOrderStatus = function(orderKey) {
+  const stepVal = Number(document.getElementById(`stepSelect_${orderKey}`).value);
+  const dateVal = document.getElementById(`dateInput_${orderKey}`).value.trim();
 
-      call.on('close', () => { resetDashboard(); });
-      call.on('error', () => { resetDashboard(); });
-    });
-  }
-
-  async function acceptIncomingCall(){
-    stopRingtone();
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        video: false
-      });
-      localStreamRef = stream;
-      incomingCallRef.answer(stream);
-      activeCallRef = incomingCallRef;
-
-      activeCallRef.on('stream', remoteStream => {
-        const audio = document.getElementById('ownerRemoteAudio');
-        audio.srcObject = remoteStream;
-        audio.volume = 1.0;
-        audio.play().catch(e => console.log(e));
-      });
-
-      activeCallRef.on('close', () => { resetDashboard(); });
-
-      document.getElementById('incomingBox').style.display = 'none';
-      document.getElementById('activeCallBox').style.display = 'block';
-      isOwnerSpeakerOn = true;
-      isOwnerMuted = false;
-      updateOwnerControlsUI();
-    } catch(err) {
-      alert("माइक्रोफ़ोन चालू करने में असमर्थ। अनुमति दें।");
-      resetDashboard();
-    }
-  }
-
-  function rejectIncomingCall(){
-    stopRingtone();
-    if(incomingCallRef) incomingCallRef.close();
-    resetDashboard();
-  }
-
-  function hangUpCall(){
-    if(activeCallRef) { try{ activeCallRef.close(); }catch(e){} }
-    resetDashboard();
-  }
-
-  function resetDashboard(){
-    stopRingtone();
-    if(localStreamRef){ localStreamRef.getTracks().forEach(t => t.stop()); }
-    incomingCallRef = null;
-    activeCallRef = null;
-    localStreamRef = null;
-    isOwnerMuted = false;
-    isOwnerSpeakerOn = true;
-    
-    document.getElementById('incomingBox').style.display = 'none';
-    document.getElementById('activeCallBox').style.display = 'none';
-    document.getElementById('statusText').style.display = 'block';
-    document.getElementById('statusText').innerText = 'डैशबोर्ड तैयार है (Online)';
-    updateOwnerControlsUI();
-  }
-
-  function toggleOwnerMute(){
-    if(!localStreamRef) return;
-    isOwnerMuted = !isOwnerMuted;
-    localStreamRef.getAudioTracks().forEach(t => { t.enabled = !isOwnerMuted; });
-    updateOwnerControlsUI();
-  }
-
-  function toggleOwnerSpeaker(){
-    isOwnerSpeakerOn = !isOwnerSpeakerOn;
-    const audio = document.getElementById('ownerRemoteAudio');
-    if(audio) { audio.volume = isOwnerSpeakerOn ? 1.0 : 0.1; }
-    updateOwnerControlsUI();
-  }
-
-  function updateOwnerControlsUI(){
-    const muteBtn = document.getElementById('ownerMuteBtn');
-    const speakerBtn = document.getElementById('ownerSpeakerBtn');
-    if(muteBtn){
-      muteBtn.classList.toggle('active', isOwnerMuted);
-      muteBtn.title = isOwnerMuted ? "Unmute" : "Mute";
-    }
-    if(speakerBtn){
-      speakerBtn.classList.toggle('active', isOwnerSpeakerOn);
-      speakerBtn.title = isOwnerSpeakerOn ? "Speaker Off" : "Speaker On";
-    }
-  }
+  db.ref("orders/" + orderKey).update({
+    stepIndex: stepVal,
+    deliveredDate: dateVal
+  }).then(() => {
+    alert("Order status updated successfully!");
+  }).catch(err => {
+    alert("Failed to update: " + err.message);
+  });
+};
 </script>
-
 </body>
 </html>
